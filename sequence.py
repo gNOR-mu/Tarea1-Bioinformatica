@@ -1,3 +1,4 @@
+import os
 from Bio import Entrez
 from Bio import SeqIO
 from Bio.Align import PairwiseAligner
@@ -30,6 +31,9 @@ class Sequence(object):
 
     def export(self) -> None:
         """Exporta todas las secuencias"""
+        # si no existe la carpeta la crea
+        if not os.path.exists("sequences"):
+            os.makedirs("sequences")
         for pair in self._sequence_pairs:
             for seq in pair:
                 with open(f"sequences/{seq.id}.{self.file_format}", "w") as output_handle:
