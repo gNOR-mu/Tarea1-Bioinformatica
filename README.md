@@ -9,10 +9,12 @@ Programa de alineamiento de secuencias de pares utilizando BLOSUM62 y PAM250.
 - Muestra score y porcentaje de identidad. 
 
 ## Tabla de contenidos
-1. [Requerimientos](#requerimientos)
-2. [Uso](#uso)
-3. [Información API GenBank](#información-api-genbank)
-4. [Bases de datos disponibles](#bases-de-datos-disponibles)
+- [Tarea1-Bioinformatica](#tarea1-bioinformatica)
+  - [Tabla de contenidos](#tabla-de-contenidos)
+  - [Requerimientos](#requerimientos)
+  - [Uso](#uso)
+  - [Información API GenBank](#información-api-genbank)
+  - [Bases de datos disponibles](#bases-de-datos-disponibles)
 
 
 ## Requerimientos
@@ -38,17 +40,19 @@ En donde:
 Ejecutar programa con 
 
 ~~~python
-python3 main.py -file nucleotide.txt -type nucleotide -format fasta
+python3 main.py -file nucleotide.txt -database nucleotide -format gb --export
 
 
-python3 main.py -file protein.txt -type protein -format fasta
+python3 main.py -file protein.txt -database protein -format gb --export
 ~~~
 
-En donde:
-1. -file: (Obligatorio) Archivo contenedor de las acc.
-2. -type: (Obligatorio) Base de datos a consultar.
-3. -format: (Opcional)  Formato que se desea usar como fasta, fa, gb, etc.
-
+options:
+  -h, --help                show this help message and exit
+  -database DATABASE        Database of alignment
+  -file FILE                File containing accession numbers
+  -format FORMAT            Fileformat fasta, fa, gb, etc
+  -e, --export, --no-export Export sequences
+  
 ## Información API GenBank
 
 Link de la API de GenBank https://www.ncbi.nlm.nih.gov/home/develop/api/

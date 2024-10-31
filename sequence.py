@@ -1,9 +1,11 @@
-import os
+import re
 from Bio import Entrez
 from Bio import SeqIO
 from Bio.Align import PairwiseAligner
 from Bio.Align import substitution_matrices
-
+from pathlib import Path
+from collections import deque
+from itertools import chain
 
 class Sequence(object):
     _sequence_pairs = []
@@ -11,49 +13,70 @@ class Sequence(object):
     match = 2
     mismatch = -4
 
-    def __init__(self, database, file_format="gb", email="") -> None:
+    def __init__(self, database, file:str, /, file_format="gb", email="", export=True) -> None:
         """Constructor"""
         Entrez.email = email
         self.database = database
         self.file_format = file_format
-        print(f"gap: {self.gap}, match: {
-              self.match}, mismatch: {self.mismatch}\n")
 
-    def add_sequence(self, seqs: list) -> None:
+        self._add_sequences(file)
+
+        if export:
+            self._export()
+
+        match database:
+            case "nucleotide":
+                self._do_nucleotid_alignment_matrices()
+            case "protein":
+                self._do_protein_alignment()
+            case _:
+                return
+
+    def __str__(self):
+        """ Imprime los valores de los scores """
+        return f"gap: {self.gap}, match: {self.match}, mismatch: {self.mismatch}"
+
+    def _add_sequences(self, file:str) -> None:
+        """Agrega una nueva secuencia a la lista de secuencias buscándolas desde la BD
+
+        Args:
+            file (str): Nombre del archivo en donde están las secuencias
         """
-            Agrega una nueva secuencia a la lista de secuencias
+        with open(file) as f:
+            for line in f.readlines():
+                sequences = re.split(r'\s+', line)[:2]
+                print(f"Getting sequences {sequences}")
 
-            @return: None
-        """
-        print(f"Getting sequences {seqs}")
-        data = self._get_data(accession_number=seqs)
-        self._sequence_pairs.append(data)
+                with Entrez.efetch(db=self.database, id=sequences, rettype=self.file_format) as handle:
+                    data = [handle for handle in SeqIO.parse(
+                        handle, self.file_format)]
+                    self._sequence_pairs.append(deque(data))
 
-    def export(self) -> None:
+    def _export(self) -> None:
         """Exporta todas las secuencias"""
-        # si no existe la carpeta la crea
-        if not os.path.exists("sequences"):
-            os.makedirs("sequences")
-        for pair in self._sequence_pairs:
-            for seq in pair:
-                with open(f"sequences/{seq.id}.{self.file_format}", "w") as output_handle:
-                    SeqIO.write(seq, output_handle, self.file_format)
+        folder = Path("sequences")
+        folder.mkdir(exist_ok=True)
+        
+        for seq in list(chain(*self._sequence_pairs)):
+            filepath = folder.joinpath(f"{seq.id}.{self.file_format}")
+            with open(filepath, "w") as output_handle:
+                SeqIO.write(seq, output_handle, self.file_format)
 
-    def do_alignment(self):
+    def _do_protein_alignment(self) -> None:
+        """ Realiza el alineamiento de las secuencias para proteinas """
+        self._process_pairs(self._aligner, ["global", "local"])
+
+    def _do_nucleotid_alignment_matrices(self) -> None:
+        """ Realiza el alineamiento de las secuencias para nucleotidos utilizando BLOSUM62 y PAM250 """
+        self._process_pairs(self._alignment_sustitution,["BLOSUM62", "PAM250"])
+        self._process_pairs(self._aligner, ["global", "local"])
+
+    def _process_pairs(self, method, modes):
+        """ Procesa los pares """
         for pair in self._sequence_pairs:
             print(f"{pair[0].description=}\n{pair[1].description=}")
-            self._aligner(pair[0], pair[1], "global")
-            self._aligner(pair[0], pair[1], "local")
-            print()
-
-    def do_alignment_matrices(self):
-        for pair in self._sequence_pairs:
-            print(f"{pair[0].description=}\n{pair[1].description=}")
-            self._alignment_sustitution(pair[0], pair[1], "BLOSUM62")
-            self._alignment_sustitution(pair[0], pair[1], "PAM250")
-            self._aligner(pair[0], pair[1], "global")
-            self._aligner(pair[0], pair[1], "local")
-            print()
+            for mode in modes:
+                method(pair[0], pair[1], mode)
 
     def print_sequences(self) -> None:
         """Imprime todas las secuencias agregadas"""
@@ -61,26 +84,15 @@ class Sequence(object):
             for sequence in pair:
                 print(sequence)
 
-    def _get_data(self, accession_number):
-        """
-            Obtiene la secuencia desde GenBank
-
-            @param database: base de datos de la secuencia
-            @param accession_number: numero de acceso de la secuencia
-
-            @return: list con la secuencia o None si no se encuentra
-        """
-        with Entrez.efetch(db=self.database, id=accession_number,
-                           rettype=self.file_format) as handle:
-            return [handle for handle in SeqIO.parse(handle, self.file_format)]
-
     def _alignment_sustitution(self, seq1, seq2, type):
+        """ Implementación PairwiseAligner para nucleotidos"""
         aligner = PairwiseAligner()
         aligner.substitution_matrix = substitution_matrices.load(type)
         alignment = aligner.align(seq1.seq, seq2.seq)
         self._get_resume(alignment, seq1.id, seq2.id, type)
 
-    def _aligner(self, seq1, seq2, type):
+    def _aligner(self, seq1, seq2, type:str):
+        """ Implementación"""
         aligner = PairwiseAligner()
         aligner.mode = type
         aligner.match_score = self.match
@@ -92,8 +104,6 @@ class Sequence(object):
 
     def _get_resume(self, alignment, seq1, seq2, type) -> tuple:
         st = str(alignment[0]).count("|")
-        smax = max([*alignment[0].coordinates[0],
-                   *alignment[0].coordinates[1]])
+        smax = max([*alignment[0].coordinates[0],*alignment[0].coordinates[1]])
         identity = (st/smax)*100
-        print(
-            f"Sequences: {seq1, seq2} {type=} score: {alignment.score} {identity=}%")
+        print(f"Sequences: {seq1, seq2} {type=}, score: {alignment.score} {identity=}%")
