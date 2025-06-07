@@ -68,7 +68,7 @@ class Sequence(object):
 
     def _do_nucleotid_alignment_matrices(self) -> None:
         """ Realiza el alineamiento de las secuencias para nucleotidos utilizando BLOSUM62 y PAM250 """
-        self._process_pairs(self._alignment_sustitution,["BLOSUM62", "PAM250"])
+        self._process_pairs(self._alignment_substitution,["BLOSUM62", "PAM250"])
         self._process_pairs(self._aligner, ["global", "local"])
 
     def _process_pairs(self, method, modes):
@@ -84,7 +84,7 @@ class Sequence(object):
             for sequence in pair:
                 print(sequence)
 
-    def _alignment_sustitution(self, seq1, seq2, type):
+    def _alignment_substitution(self, seq1, seq2, type):
         """ Implementación PairwiseAligner para nucleotidos"""
         aligner = PairwiseAligner()
         aligner.substitution_matrix = substitution_matrices.load(type)
