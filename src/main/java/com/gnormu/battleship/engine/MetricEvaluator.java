@@ -12,7 +12,7 @@ import com.gnormu.battleship.strategy.BruteForceStrategy;
 import com.gnormu.battleship.strategy.TrueRandomMemoryStrategy;
 import com.gnormu.battleship.strategy.TrueRandomStrategy;
 import com.gnormu.battleship.strategy.HuntTargetStrategy;
-import com.gnormu.battleship.strategy.Montecarlo;
+import com.gnormu.battleship.strategy.MontecarloStrategy;
 
 /**
  * Clase encargada de evaluar y comparar las métricas de eficiencia
@@ -44,7 +44,7 @@ public class MetricEvaluator {
                 TrueRandomStrategy::new,
                 TrueRandomMemoryStrategy::new,
                 HuntTargetStrategy::new,
-                Montecarlo::new);
+                MontecarloStrategy::new);
 
         // Definición de anchos de columna para cálculo dinámico del borde del reporte
         int[] colWidths = { 12, 32, 12, 16, 12, 12 };

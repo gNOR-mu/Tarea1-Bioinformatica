@@ -79,7 +79,7 @@ Descripción breve de los algoritmos a implementar:
 - [ ] [Parity / Checkerboard](doc/Parity%20checkerboard.md) (Paridad o Tablero de Ajedrez): Optimiza la búsqueda basándose en una regla matemática
   - Ejemplo: el barco más pequeño ocupa 2 celdas.
   - Cómo funciona: Solo dispara en celdas de un color del tablero de ajedrez (donde x + y es par, por ejemplo). Es imposible que un barco de tamaño 2 o más se esconda sin tocar al menos una celda de ese color
-- [ ] [Probability Density Analysis (Monte Carlo)](doc/Montecarlo.md): Algoritmo probabilístico, las celdas donde los barcos caben con más frecuencia son las que tienen mayor probabilidad de éxito.
+- [X] [Probability Density Analysis (Monte Carlo)](doc/Montecarlo.md): Algoritmo probabilístico, las celdas donde los barcos caben con más frecuencia son las que tienen mayor probabilidad de éxito.
 - [ ] [Heuristic-Based](doc/Heuristic-based.md): Una combinación de reglas predefinidas.
 
 # Resultados
@@ -88,11 +88,12 @@ Evaluación en un Notebook i5-13420H 16GB RAM DDR5, ambas pruebas se ejecutan co
 
 ### Tiempo Promedio en milisegundos (ms):
 ```
-Benchmark                      (boardType)    (strategyType)  Mode  Cnt    Score    Error  Units
-SolverBenchmark.runSimulation      Board1D        TrueRandom  avgt    5  118,669 ± 15,152  ms/op
-SolverBenchmark.runSimulation      Board1D  TrueRandomMemory  avgt    5   50,615 ±  6,085  ms/op
-SolverBenchmark.runSimulation      Board1D        BruteForce  avgt    5   23,584 ±  2,115  ms/op
-SolverBenchmark.runSimulation      Board1D        HuntTarget  avgt    5  118,403 ± 10,443  ms/op
+Benchmark                      (boardType)  (placerType)    (strategyType)  Mode  Cnt     Score    Error  Units
+SolverBenchmark.runSimulation      Board1D        Random        TrueRandom  avgt    5   123,852 ± 50,676  ms/op
+SolverBenchmark.runSimulation      Board1D        Random  TrueRandomMemory  avgt    5    48,741 ±  7,732  ms/op
+SolverBenchmark.runSimulation      Board1D        Random        BruteForce  avgt    5    26,088 ±  3,530  ms/op
+SolverBenchmark.runSimulation      Board1D        Random        HuntTarget  avgt    5    94,653 ±  6,489  ms/op
+SolverBenchmark.runSimulation      Board1D        Random        Montecarlo  avgt    5  1889,735 ± 72,592  ms/op
 ```
 
 ### Evaluación de turnos:
@@ -107,17 +108,17 @@ Dimensión del Tablero: 10x10
 -------------------------------------------------------------------------------------------------------------------
 | Tablero      | Estrategia                       | Turnos Prom. | Juegos Perfectos | Mejor Juego  | Peor Juego   |
 -------------------------------------------------------------------------------------------------------------------
-| Board 1D     | BruteForce                       | 88,52        | 0                | 26           | 100          |
-| Board 1D     | TrueRandom - Sin memoria         | 343,73       | 0                | 64           | 1542         |
-| Board 1D     | TrueRandom - Con memoria         | 95,40        | 0                | 53           | 100          |
-| Board 1D     | HuntTarget                       | 59,77        | 0                | 18           | 100          |
--------------------------------------------------------------------------------------------------------------------
+| Board1D      | BruteForce                       | 88,55        | 0                | 26           | 100          |
+| Board1D      | TrueRandom                       | 343,65       | 0                | 56           | 1521         |
+| Board1D      | TrueRandomMemory                 | 95,38        | 0                | 50           | 100          |
+| Board1D      | HuntTarget                       | 59,80        | 0                | 18           | 100          |
+| Board1D      | Montecarlo                       | 44,72        | 1                | 17           | 73           |
 ===================================================================================================================
 ```
 
 ### Otros
 
-Existe una implementación FixedRandomPlacer la cual genera una única variante aleatoria de la posición de los barcos y luego los copia para cada juego, esto simula un posicionador de barcos casi perfecto en términos de tiempo o al menos más eficiente que el aleatorio indicando que aún hay márgenes de mejora, por sejemplo en BruteForce con casi 16 ms de diferencia:
+Existe una implementación FixedRandomPlacer la cual genera una única variante aleatoria de la posición de los barcos y luego los copia para cada juego, esto simula un posicionador de barcos casi perfecto en términos de tiempo o al menos más eficiente que el aleatorio indicando que aún hay márgenes de mejora, con la eventualidad que posiblemente la JVM realice optimizaciones sobre ella:
 
 ```
 SolverBenchmark.runSimulation      Board1D        Random        BruteForce  avgt    5   26,997 ± 2,948  ms/op

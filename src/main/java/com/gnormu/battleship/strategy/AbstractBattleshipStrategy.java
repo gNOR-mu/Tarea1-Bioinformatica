@@ -8,8 +8,10 @@ import com.gnormu.battleship.domain.CellContent;
  */
 public abstract class AbstractBattleshipStrategy implements BattleshipStrategy {
     /**
-     * último disparo realizado, inicialmente siempre se considera que el último
-     * disparo es agua por conveniencia
+     * Resultado del último disparo realizado, inicialmente siempre se considera que
+     * el último disparo es agua por conveniencia.
+     * <p>
+     * Un número > 0 indica que impactó a un barco
      */
     protected byte lastShoot = CellContent.WATER;
 

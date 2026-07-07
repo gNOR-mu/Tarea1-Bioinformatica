@@ -16,6 +16,7 @@ import com.gnormu.battleship.engine.SimulationConfig;
 import com.gnormu.battleship.strategy.BattleshipStrategy;
 import com.gnormu.battleship.strategy.BruteForceStrategy;
 import com.gnormu.battleship.strategy.HuntTargetStrategy;
+import com.gnormu.battleship.strategy.MontecarloStrategy;
 import com.gnormu.battleship.strategy.TrueRandomMemoryStrategy;
 import com.gnormu.battleship.strategy.TrueRandomStrategy;
 
@@ -24,13 +25,13 @@ import com.gnormu.battleship.strategy.TrueRandomStrategy;
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 public class SolverBenchmark {
 
-    @Param({ "TrueRandom", "TrueRandomMemory", "BruteForce", "HuntTarget" })
+    @Param({ "TrueRandom", "TrueRandomMemory", "BruteForce", "HuntTarget", "Montecarlo" })
     private String strategyType;
 
     @Param({ "Board1D" })
     private String boardType;
 
-    @Param({ "Random", "FixedRandom" })
+    @Param({ "Random" })
     private String placerType;
 
     private MetricAnalyzer analyzer;
@@ -52,6 +53,7 @@ public class SolverBenchmark {
             case "TrueRandomMemory" -> TrueRandomMemoryStrategy::new;
             case "BruteForce" -> BruteForceStrategy::new;
             case "HuntTarget" -> HuntTargetStrategy::new;
+            case "Montecarlo" -> MontecarloStrategy::new;
             default -> throw new IllegalArgumentException("Estrategia no soportada: " + strategyType);
         };
 

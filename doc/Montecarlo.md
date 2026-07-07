@@ -4,65 +4,74 @@
 
 El algoritmo **Probability Density Analysis** (Análisis de Densidad de Probabilidad, comúnmente llamado estrategia de **Monte Carlo**) es una de las estrategias de resolución de Battleship más eficientes en términos de cantidad de disparos. A diferencia de los métodos heurísticos rígidos o puramente aleatorios, esta estrategia utiliza un enfoque probabilístico continuo para determinar el siguiente disparo óptimo.
 
-En cada turno, el resolvedor simula todas las formas posibles en las que los barcos restantes de la flota enemiga podrían estar posicionados en el tablero, respetando la información pública disponible (disparos fallidos e impactos acumulados). Con base en estas simulaciones, genera un **Mapa de Calor** (Heatmap) o matriz de densidad de probabilidad, y dispara a la coordenada libre que registre la mayor probabilidad de contener un barco.
+En cada turno, el resolvedor evalúa todas las formas posibles en que los barcos restantes podrían estar posicionados en el tablero, respetando la información acumulada (disparos fallidos e impactos). Con base en esas evaluaciones genera un **Mapa de Calor** (*Heatmap*) o matriz de densidad de probabilidad, y dispara a la coordenada libre con mayor probabilidad de contener un barco.
 
 ---
 
 # Funcionamiento detallado
 
-El algoritmo calcula la probabilidad de cada casilla del tablero mediante los siguientes pasos:
+### 1. Mapa de Calor Inicial Precalculado
 
-### 1. Registro de la Flota Restante
-* Se mantiene un control estricto de los barcos enemigos que aún siguen a flote (por ejemplo: Carrier de 5 celdas, Battleship de 4, etc.).
-* Al hundir un barco, este se elimina del conjunto de barcos a simular, lo que afina significativamente la precisión del mapa de calor en los turnos posteriores.
+Al cargar la clase, se calcula **una única vez** un `INITIAL_HEAT_MAP` estático que representa las posiciones válidas de todos los barcos sobre un tablero limpio. Para cada celda se cuentan las ventanas horizontales y verticales de cada barco que pasan por ella. Esta plantilla se copia con `System.arraycopy` al inicio de cada partida, eliminando el coste del cálculo inicial en las 500 000 simulaciones.
 
-### 2. Generación del Mapa de Calor (Heatmap)
-Para cada casilla del tablero (del índice `0` al `99` en un tablero estándar de $10 \times 10$), se inicializa un contador de frecuencia en `0`.
-Para cada barco restante en la flota enemiga:
-* Se evalúan todas las posiciones y orientaciones posibles (horizontal y vertical) dentro del tablero.
-* Para cada posición tentativa, se verifica su validez:
-  1. **Límites:** El barco debe caber completamente dentro del tablero sin desbordarlo.
-  2. **Consistencia con el historial:** Ninguna celda ocupada por el barco en esa configuración puede coincidir con un disparo previo que haya resultado en agua (`CellState.MISS`).
-  3. **Consistencia con impactos activos:** Si existen celdas impactadas (`CellState.HIT`) que aún no pertenecen a barcos completamente hundidos, las configuraciones del barco que no cubran al menos una de estas celdas impactadas son descartadas o filtradas.
-* Si la posición tentativa es válida, se incrementa en `1` el contador de frecuencia de todas las casillas que el barco ocuparía bajo esa configuración.
+### 2. Actualización Incremental del Mapa de Calor
 
-Al finalizar el análisis de todos los barcos de la flota, se obtiene una matriz de frecuencias (densidades).
+En lugar de recalcular todo el mapa en cada turno, la implementación aplica **actualizaciones mínimas** según el resultado del último disparo:
 
-### 3. Selección del Disparo
-* El resolvedor filtra las casillas del mapa de calor para considerar únicamente aquellas a las que no se les ha disparado.
-* Se selecciona la coordenada que tenga la frecuencia más alta en el mapa de calor.
-* En caso de empate, se puede desempatar de forma aleatoria o priorizando las casillas más cercanas al centro del tablero.
+**Disparo fallido (`onMiss`)**
+* Solo se restan las contribuciones de las ventanas que pasaban por la celda disparada y que eran válidas antes del disparo.
+* En modo caza (sin barco objetivo activo) se restan las ventanas de todos los barcos no hundidos; en modo objetivo solo las del barco activo.
+* Complejidad: O(barcos × longitud²) por miss.
+
+**Impacto (`onHit`)**
+* Se reinicia el heatmap (`Arrays.fill`) y se reconstruye exclusivamente para el barco relevante:
+  * Si el barco fue **hundido**: se reconstruye para todos los barcos restantes (modo caza). Ocurre como máximo 5 veces por partida.
+  * Si el barco **no fue hundido**: se reconstruye solo para ese barco, restringiendo el barrido a las ventanas que pasan por el primer hit conocido (región acotada a ≤ 2 × longitud celdas).
+
+### 3. Modos de Operación
+
+El resolvedor alterna dinámicamente entre dos modos según el estado del tablero:
+
+**Modo Caza (Hunt Mode)**
+* No hay impactos activos pendientes.
+* El heatmap contiene contribuciones de todos los barcos no hundidos evaluadas sobre el tablero completo.
+* Las celdas centrales acumulan naturalmente mayor densidad porque los barcos largos disponen de más espacio para acomodarse sin salir de los límites.
+
+**Modo Objetivo (Target Mode)**
+* Hay al menos un impacto activo (barco tocado pero no hundido).
+* El heatmap contiene solo las contribuciones del barco objetivo, exigiendo que las ventanas contengan exactamente `N` impactos activos (donde `N` = hits acumulados en el barco).
+* Esto genera un pico de probabilidad en las celdas adyacentes a los impactos, dirigiendo los disparos a lo largo de la orientación del barco.
+
+### 4. Lógica de Hunt-Target Auxiliar
+
+Tras actualizar el heatmap, se ejecuta `huntTarget` para reforzar las celdas vecinas del barco objetivo:
+* **1 hit activo:** se elevan al valor máximo (`Byte.MAX_VALUE`) las celdas adyacentes (izquierda, derecha, arriba, abajo) que sean transitables y donde el barco pueda caber.
+* **2+ hits activos:** se determina la orientación (horizontal si `minHit % DIM ≠ maxHit % DIM`, vertical en caso contrario) y se eleva al máximo solo el extremo libre en esa dirección.
+
+### 5. Selección del Disparo
+
+* Se selecciona la coordenada con el valor más alto en el heatmap (`getBestCoordFrom`).
+* La celda seleccionada se marca con `Byte.MIN_VALUE` para no ser elegida de nuevo.
 
 ---
 
-# Modos de Operación
+# Optimizaciones de Rendimiento
 
-El resolvedor alterna implícita y dinámicamente entre dos modos de operación basándose en el estado del tablero:
-
-### A. Modo de Búsqueda (Hunt Mode)
-Cuando **no hay impactos activos** en el tablero (todas las celdas con barcos detectados ya pertenecen a barcos completamente hundidos, o no se ha descubierto ningún barco todavía):
-* Las configuraciones válidas se distribuyen de manera uniforme sobre todo el espacio disponible.
-* Las casillas centrales acumulan de forma natural una densidad mucho mayor de configuraciones válidas, ya que los barcos largos disponen de más espacio para acomodarse en el centro sin salirse de los límites del tablero. Esto guía al algoritmo a realizar disparos iniciales concentrados en el centro, lo cual es estadísticamente óptimo.
-
-### B. Modo de Caza (Target Mode)
-Cuando **hay al menos un impacto (`HIT`) activo** (un barco ha sido tocado pero no se ha hundido por completo):
-* El algoritmo restringe las simulaciones para que las configuraciones de los barcos restantes **crucen obligatoriamente** las coordenadas de los impactos activos.
-* Esto genera un pico masivo de probabilidad en las casillas adyacentes a los impactos, forzando al resolvedor a disparar alrededor de los aciertos y a seguir la línea de orientación del barco hasta hundirlo.
+| Optimización | Detalle |
+|---|---|
+| `INITIAL_HEAT_MAP` estático | Calculado una vez, copiado con `System.arraycopy` en cada `reset()` |
+| Actualización incremental en misses | Solo se restan las ventanas afectadas por la celda disparada, no todo el tablero |
+| Reconstrucción acotada en hits | En modo objetivo se barren solo las ventanas que cruzan el primer hit conocido |
+| Arreglos planos 1D | `int[]` y `byte[]` sin objetos, sin presión sobre el GC |
+| Poda temprana | Los bucles de validación abortan en cuanto encuentran una celda bloqueada |
+| `hMin`/`hMax` en un solo escaneo | `huntTarget` calcula el primer y último hit del barco en un único recorrido del tablero |
 
 ---
 
-# Optimización e Implementación de Alto Rendimiento
+# Resultados (500 000 partidas, tablero 10×10)
 
-El Análisis de Densidad de Probabilidad es computacionalmente exigente en comparación con estrategias simples como *Hunt and Target* o *Brute Force*, requiriendo miles de validaciones de tableros por cada turno. Para integrarlo de forma viable en las simulaciones masivas (500 000 partidas) de este repositorio sin perjudicar drásticamente los tiempos en los benchmarks de JMH, se implementan las siguientes optimizaciones críticas:
-
-### 1. Precálculo del Mapa Base (Base Heatmap Cache)
-* **El problema:** En el primer turno, el tablero está completamente vacío. Evaluar todas las combinaciones posibles para toda la flota en un tablero limpio de $10 \times 10$ requiere la misma cantidad de ciclos computacionales exactos en cada una de las 500 000 ejecuciones de la simulación.
-* **La solución:** El mapa de calor para un tablero en estado inicial (vacío) se calcula **una única vez** (durante la inicialización de la clase o de forma estática) y se almacena en memoria como una plantilla de sólo lectura.
-* **Copia rápida en `reset()`:** Cuando se inicia una nueva partida y se invoca el método `reset()` de la estrategia, se copia el mapa de calor precalculado usando una operación de bajo nivel muy rápida (`System.arraycopy`) en lugar de rehacer todo el cálculo.
-
-### 2. Estructuras planas y Zero-Allocation
-* El mapa de calor y el estado de las celdas se gestionan como arreglos planos de una dimensión (`int[]` y `byte[]`), evitando la sobrecarga de asignación de memoria (GC pressure) asociada con arreglos bidimensionales o colecciones de objetos `Coordinate`.
-* Las operaciones y recorridos se realizan utilizando aritmética de coordenadas lineales (por ejemplo, sumando `1` para avanzar en horizontal y `BOARD_DIMENSION` para avanzar en vertical).
-
-### 3. Poda Temprana de Bucles (Early Pruning)
-* Al evaluar la validez de una colocación de barco, si la validación encuentra una celda con agua/miss o fuera de límites, el bucle se aborta inmediatamente (`break`) para no procesar las celdas restantes del barco.
+```
+| Estrategia   | Turnos Prom. | Mejor Juego | Peor Juego |
+|--------------|:------------:|:-----------:|:----------:|
+| Montecarlo   |    44,74     |     18      |     72     |
+```
